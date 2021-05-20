@@ -1,0 +1,8 @@
+
+MQTTToMongoDB/bin
+MQTTToMongoDB/obj
+MQTTToMongoDB/Properties/launchSettings.json
+.env
+.vs
+WSRelay/bin
+WSRelay/pyvenv.cfg
