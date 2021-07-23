@@ -62,13 +62,13 @@ if __name__ == "__main__":
                 resume_token = stream.resume_token
                 processChange(resume_token, change)
                 
-    except pymongo.errors.PyMongoError:
+    except pymongo.errors.PyMongoError as ex:
         # The ChangeStream encountered an unrecoverable error or the
         # resume attempt failed to recreate the cursor.
         if resume_token is None:
             # There is no usable resume token because there was a
             # failure during ChangeStream initialization.
-            logging.error('...')
+            print('ERROR: ' + str(ex))
         else:
             # Use the interrupted ChangeStream's resume token to create
             # a new ChangeStream. The new stream will continue from the
