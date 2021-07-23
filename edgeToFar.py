@@ -9,10 +9,10 @@ from datetime import datetime
 # Reference script to run at the edge to push to far cloud
 ##########
 # configure connection to mongodb
-zone_name = "Boston"
+zone_name = "DFW"
 partition_key = [zone_name]
-conn_src = pymongo.MongoClient("")
-conn_dst = pymongo.MongoClient("")
+conn_src = pymongo.MongoClient("mongodb://user:password@ip:27017")
+conn_dst = pymongo.MongoClient("mongodb+srv://mongoadmin:password@farcloud.9klbr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 handle_src = conn_src["messages"]["messages"]
 handle_dst = conn_dst["messages"]["messages"]
 
@@ -44,9 +44,9 @@ def processChange(token, change):
             handle_dst.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
     if(change["operationType"] == "delete"):
         newDoc = change["fullDocument"]
-            print("Deleting...")
-            print("\t\tResume Token Ending " + token["_data"][-10:])
-            handle_dst.deleteOne({"_id":change["documentKey"]["_id"]})
+        print("Deleting...")
+        print("\t\tResume Token Ending " + token["_data"][-10:])
+        handle_dst.deleteOne({"_id":change["documentKey"]["_id"]})
 
 
 ###########
