@@ -7,3 +7,4 @@ MQTTToMongoDB/Properties/launchSettings.json
 WSRelay/bin
 WSRelay/pyvenv.cfg
 EdgeFarSync/.build.sh
+EdgeFarSync/.build2.sh

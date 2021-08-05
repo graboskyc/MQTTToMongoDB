@@ -59,6 +59,19 @@ def processChange(token, change, sourceName, targetName, handle, addKey):
 
             handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
+        # it was a replace
+        if(change["operationType"] == "replace"):
+            newDoc = change["fullDocument"]
+            print("Replacing document in %s..."%(targetName))
+            print("\t\tResume Token Ending " + token["_data"][-10:])
+            
+            # region doc cleanup
+            if addKey:
+                newDoc["_pk"] = zone_name
+            # endregion
+
+            handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
+            conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
         # it was an delete
         if(change["operationType"] == "delete"):
             print("Deleting document from %s..."%(targetName))
