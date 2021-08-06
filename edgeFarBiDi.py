@@ -30,7 +30,7 @@ handle_far = conn_far[db_name][col_name]
 ##########
 # implement whatever business logic you want to process a change
 ##########
-def processChange(token, change, sourceName, targetName, handle, addKey):
+def processChange(token, change, sourceName, targetName, handle, h_src, addKey):
     try:
         # it was an insert
         if(change["operationType"] == "insert"):
@@ -41,6 +41,7 @@ def processChange(token, change, sourceName, targetName, handle, addKey):
             # region doc cleanup
             if addKey:
                 newDoc["_pk"] = zone_name
+                h_src.update_one({"_id":newDoc["_id"]}, {"$set":{"_pk":zone_name}})
             # endregion
 
             handle.insert_one(newDoc)
@@ -51,11 +52,6 @@ def processChange(token, change, sourceName, targetName, handle, addKey):
             newDoc = change["fullDocument"]
             print("Updating document in %s..."%(targetName))
             print("\t\tResume Token Ending " + token["_data"][-10:])
-            
-            # region doc cleanup
-            if addKey:
-                newDoc["_pk"] = zone_name
-            # endregion
 
             handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
@@ -64,11 +60,6 @@ def processChange(token, change, sourceName, targetName, handle, addKey):
             newDoc = change["fullDocument"]
             print("Replacing document in %s..."%(targetName))
             print("\t\tResume Token Ending " + token["_data"][-10:])
-            
-            # region doc cleanup
-            if addKey:
-                newDoc["_pk"] = zone_name
-            # endregion
 
             handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
@@ -89,7 +80,7 @@ def watchCollection(name_src, h_src, name_dst, h_dst, pipeline, addKey):
             for change in stream:
                 # store this for safe keeping somewhere
                 resume_token = stream.resume_token
-                processChange(resume_token, change, name_src, name_dst, h_dst, addKey)
+                processChange(resume_token, change, name_src, name_dst, h_dst, h_src, addKey)
                 
     except pymongo.errors.PyMongoError as ex:
         # The ChangeStream encountered an unrecoverable error or the
@@ -104,13 +95,17 @@ def watchCollection(name_src, h_src, name_dst, h_dst, pipeline, addKey):
             # last seen insert change without missing any events.
             with h_src.watch(pipeline, full_document="updateLookup", resume_after=resume_token) as stream:
                 for insert_change in stream:
-                    processChange(resume_token, insert_change, name_src, name_dst, h_dst, addKey)
+                    processChange(resume_token, insert_change, name_src, name_dst, h_dst, h_src, addKey)
 
 
 ###########
 # Main loop
 ##########
 if __name__ == "__main__":
+    # this will cause a recursive loop. however mongodb will detect
+    # a NOP on the recursive replace and thus "cancel" the recursion thereafter
+    watch_zones.append(zone_name)
+    
     try:
         # create a local capped collection to store tokens
         # one for each far and near
