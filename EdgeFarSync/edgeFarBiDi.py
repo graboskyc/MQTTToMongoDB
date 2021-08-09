@@ -4,6 +4,7 @@ import _thread
 from bson.json_util import dumps
 from datetime import datetime
 import os
+import time
 
 ##########
 # Reference script to run at the edge sync with far cloud
@@ -26,22 +27,41 @@ conn_edge = pymongo.MongoClient(constr_edge)
 conn_far = pymongo.MongoClient(constr_far)
 handle_edge = conn_edge[db_name][col_name]
 handle_far = conn_far[db_name][col_name]
+logMessages = []
 
 ##########
 # implement whatever business logic you want to process a change
 ##########
+def writeLog(msg):
+    global logMessages
+    logMessages.append(msg)
+
+def asyncLogger():
+    global logMessages
+    try:
+        waitTime = 5
+        time.sleep(waitTime)
+        print("Had " + str(len(logMessages)) + " messages over last "+str(waitTime)+", the last of which is:")
+        print("\t"+logMessages[-1])
+        logMessages = []
+    except:
+        print("No log messages")
+        pass
+    finally:
+        _thread.start_new_thread(asyncLogger, ())
+
 def processChange(token, change, sourceName, targetName, handle, h_src, addKey):
     try:
         # it was an insert
         if(change["operationType"] == "insert"):
             newDoc = change["fullDocument"]
-            print("Inserting document into %s..."%(targetName))
-            print("\t\tResume Token Ending " + token["_data"][-10:])
+            writeLog("Inserting document into %s...\n\t\tResume Token Ending %s"%(targetName, token["_data"][10]+token["_data"][-10:]))
             
             # region doc cleanup
             if addKey:
-                newDoc["_pk"] = zone_name
-                h_src.update_one({"_id":newDoc["_id"]}, {"$set":{"_pk":zone_name}})
+                if("_pk" not in newDoc):
+                    newDoc["_pk"] = zone_name
+                    h_src.update_one({"_id":newDoc["_id"]}, {"$set":{"_pk":zone_name}})
             # endregion
 
             handle.insert_one(newDoc)
@@ -50,23 +70,20 @@ def processChange(token, change, sourceName, targetName, handle, h_src, addKey):
         # it was an update
         if(change["operationType"] == "update"):
             newDoc = change["fullDocument"]
-            print("Updating document in %s..."%(targetName))
-            print("\t\tResume Token Ending " + token["_data"][-10:])
+            writeLog("Updating document in %s...\n\t\tResume Token Ending %s"%(targetName, token["_data"][10]+token["_data"][-10:]))
 
             handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
         # it was a replace
         if(change["operationType"] == "replace"):
             newDoc = change["fullDocument"]
-            print("Replacing document in %s..."%(targetName))
-            print("\t\tResume Token Ending " + token["_data"][-10:])
+            writeLog("Replacing document in %s...\n\t\tResume Token Ending %s"%(targetName, token["_data"][10]+token["_data"][-10:]))
 
             handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
         # it was an delete
         if(change["operationType"] == "delete"):
-            print("Deleting document from %s..."%(targetName))
-            print("\t\tResume Token Ending " + token["_data"][-10:])
+            writeLog("Deleting document from %s...\n\t\tResume Token Ending %s"%(targetName, token["_data"][10]+token["_data"][-10:]))
             handle.delete_one({"_id":change["documentKey"]["_id"]})
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"delete"})
     except:
@@ -105,6 +122,7 @@ if __name__ == "__main__":
     # this will cause a recursive loop. however mongodb will detect
     # a NOP on the recursive replace and thus "cancel" the recursion thereafter
     watch_zones.append(zone_name)
+    logMessages=[]
     
     try:
         # create a local capped collection to store tokens
@@ -117,8 +135,11 @@ if __name__ == "__main__":
             print("Making metadata collection...")
             conn_edge["_syncmetadata"].create_collection("Far", capped=True, size=4096, max=100)
 
+        # logging thread
+        _thread.start_new_thread(asyncLogger, ())
+
         # handle edge to far sync thread
-        pipeline = []
+        pipeline = [{"$match": {"operationType":{"$ne":"replace"}}}]
         _thread.start_new_thread(watchCollection, ("Edge", handle_edge, "Far", handle_far, pipeline, True))
 
         # handle far to edge sync thread

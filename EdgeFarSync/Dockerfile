@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 LABEL maintainer="chris@grabosky.net"
-LABEL version="1.0.1"
+LABEL version="1.0.2"
 ENV CONTAINER_SHELL=bash
 ENV CONTAINER=
 
@@ -11,17 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get clean && \
     apt-get update && \
     apt-get install -y \
-        git \
-        whois \
         python3.7 \
-        gnupg2 \
-        wget \
-        vim \
         python3-distutils \
-        unzip \
-        dos2unix \
-        curl \
-        software-properties-common \
+        wget \
         python-apt
 
 # force newer version of ansible
