@@ -1,4 +1,29 @@
+# Background
+_This is a reference implementation (not suitable for production code)_
+
+In this scenario, we want to build a Hub-and-Spoke architecture such that we can have many edge zones (Spokes) to have local reads and writes, but a subset of data will be sync'd back to a central Hub then other edge zones (Spokes) can pull down from the central Hub a subset of data it cares about.
+
+Imagine a scenario where you want to log autonomous vehicle data with low latency. You would write the data to a MongoDB replica set in one edge zone (e.g. DFW) and it should sync to surrounding edge zones (e.g. Houston) but not distant edge zones (e.g. Boston).
+
+In this reference implementation not meant for production, we will sync data will relevant `_pk` keys in the `messages.messages` namespace to the central Hub. Other edge zones (Spokes) will pull from the hub to the same name space based on values passed into its Docker container. The two values are:
+* `ZONENAME` - a single value unique to each edge Spoke to identify it
+* `WATCHZONES` - a comma delimited string of which other Spoke's `ZONENAME`s it should pull from the Hub
+* `CONSTREDGE` - a MongoDB connection string for the Spoke
+* `CONSTRFAR` - a MongoDB connection string for the Hub
+
+# Example Architecture
+
+![](ss01.png)
+
 # How To
+
+## Prerequisites
+* Have a MongoDB Replica Set running in each Spoke data center or region (we recommend managing automation and metrics with MongoDB Cloud Manager)
+* Have a MongoDB Replica Set running in the central Hub data center or region (we recommend MongoDB Atlas)
+* Have a server to run the Docker sync container
+* Follow steps below for Docker sync container
+
+## Enabling Hub-and-Spoke sync
 
 1. Download the 3 files in this directory: `build.sh`, `Dockerfile`, and `edgeFarBiDi.py` onto the machine you want to run the container
 2. Make sure docker is installed on that machine
