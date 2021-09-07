@@ -72,8 +72,22 @@ def processChange(token, change, sourceName, targetName, handle, h_src, addKey):
             newDoc = change["fullDocument"]
             writeLog("Updating document in %s...\n\t\tResume Token Ending %s"%(targetName, token["_data"][10]+token["_data"][-10:]))
 
-            handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
+            # naive approach
+            #handle.replace_one({"_id":change["documentKey"]["_id"]}, newDoc)
+            #conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
+
+            # process what was updated
+            updateStatement = {}
+            if "updatedFields" in change["updateDescription"]:
+                updateStatement["$set"] = {}
+                updateStatement["$set"] = change["updateDescription"]["updatedFields"]
+            if "removedFields" in change["updateDescription"]:
+                updateStatement["$unset"] = {}
+                for removed in change["updateDescription"]["removedFields"]:
+                    updateStatement["$unset"][removed] = ""
+            handle.update_one({"_id":change["documentKey"]["_id"]}, updateStatement)
             conn_edge["_syncmetadata"][sourceName].insert_one({"srcResumeToken":token, "was":"update"})
+
         # it was a replace
         if(change["operationType"] == "replace"):
             newDoc = change["fullDocument"]
