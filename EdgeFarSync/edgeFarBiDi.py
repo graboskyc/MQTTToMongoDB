@@ -31,6 +31,7 @@ logMessages = []
 
 ##########
 # implement whatever business logic you want to process a change
+# the reason of the writeLog and asyncLogger is to update the CLI output when events happen but if we wrote direct to CLI each time, it would slow things down and be too slow. Instead write changes to an array and print one status update every 5 seconds
 ##########
 def writeLog(msg):
     global logMessages
